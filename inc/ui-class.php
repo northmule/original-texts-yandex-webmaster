@@ -45,8 +45,6 @@ class OrtextUi {
 
                     var content = jQuery(self).val();
                     
-                    console.log(content);
-
                      if (content.length < 1) {
                         return false;
                     }

@@ -67,3 +67,18 @@ legend {
     font-size: 17px;
 }
 
+input[type="checkbox"]:checked::before {
+
+    height: 15px;
+    width: 15px;
+}
+
+input[type="checkbox"], input[type="radio"] {
+    height: 15px;
+    width: 15px;
+}
+input[type="radio"]:checked::before {
+    height: 88%;
+    width: 88%;
+    margin: 1px 0px 0px 1px;
+}

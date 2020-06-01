@@ -5,6 +5,7 @@ if (!defined('ABSPATH')) {
 
 /**
  * Базовый Класс для плагина Оригинальные тексты Яндекс
+ * @todo Переделать этот страшный класс!
  */
 class OrTextBase {
 
@@ -28,32 +29,32 @@ class OrTextBase {
      * Констурктора класса
      */
     public function __construct() {
-        $this->addActios();
-        $this->addOptions();
+        //$this->addActios();
+        //$this->addOptions();
     }
 
     public static function getContext() {
-        return $this;
+        return self();
     }
 
     /**
      * Опции вызываемые деактивацией
      */
     public function deactivationPlugin() {
-        delete_option('ortext_id');
-        delete_option('ortext_passwd');
-        delete_option('ortext_token');
-        delete_option('ortext_token_key');
-        delete_option('ortext_token_time');
-        delete_option('ortext_loadsite');
-        delete_option('ortext_yasent');
-        delete_option('ortext_jornal');
-        delete_option('ortext_posttype'); //Типы выбранных записей
-        delete_option('ortextprol');
-        delete_option('ortext_other'); //Опция устарела и не используется
-        delete_option('ortext_jornal_inc');
-        delete_option('ortext_error_inc'); //Включатель ошибок в виде сообщений
-        delete_option('ortext_user_id');
+//        delete_option('ortext_id');
+//        delete_option('ortext_passwd');
+//        delete_option('ortext_token');
+//        delete_option('ortext_token_key');
+//        delete_option('ortext_token_time');
+//        delete_option('ortext_loadsite');
+//        delete_option('ortext_yasent');
+//        delete_option('ortext_jornal');
+//        delete_option('ortext_posttype'); //Типы выбранных записей
+//        delete_option('ortextprol');
+//        delete_option('ortext_other'); //Опция устарела и не используется
+//        delete_option('ortext_jornal_inc');
+//        delete_option('ortext_error_inc'); //Включатель ошибок в виде сообщений
+//        delete_option('ortext_user_id');
         wp_clear_scheduled_hook('ortextya_cron');
     }
 
@@ -61,24 +62,27 @@ class OrTextBase {
      * Активация фишек
      */
     public function addActios() {
+        //add_action('wp_automatic_post_added', array($this, 'sendAutomaticPost'));
+
         add_action('admin_menu', array($this, 'adminOptions'));
+
         add_action('add_meta_boxes', array($this, 'settingMetabos')); //Добавляем метабокс в пост
+
         $array_posts = get_option('ortext_posttype'); //Типы постов
+
         if (!empty($array_posts) && is_array($array_posts)) {
             foreach ($array_posts as $k => $v) {
                 add_action('save_' . $v, array($this, 'metaboxSavePost'), 9); //Сохранение галки в постах
-                //gutenberg_meta_box_save('normal');
+
                 add_action('publish_' . $v, array($this, 'metaboxSavePost'), 9); //Сохранение галки в постах
+
                 add_action('publish_' . $v, array($this, 'metaboxSentYandex'), 400); //Отправка значений в Яндекс
-                //
+
                 add_action('future_' . $v, array($this, 'futureSentYandex'), 10, 2); //Публикация отложенной записи
 
                 add_action('save_' . $v, array($this, 'SentYandePostEditor'), 10, 2); //Отправка при массовом обновлении постов
-                //
-                // add_action('admin_notices', array($this, 'adminNotices'),20);
             }
         }
-
 
         //cron
         add_filter('cron_schedules', array($this, 'cronTimeList')); //Список своих крон, время, периоды
@@ -93,22 +97,56 @@ class OrTextBase {
         add_action('admin_enqueue_scripts', array($this, 'variableScriptAdminPage'), 100);
     }
 
+    /**
+     * Отправка в Яндекс на Хуке Плагина wp-automatic
+     * @param type $args
+     */
+    public static function sendAutomaticPost($args) {
+                  
+        $post_id = $args['post_id'];
+
+        $post = get_post($post_id);
+        
+        $textNostrip = strip_tags($post->post_content);
+        $text = htmlspecialchars($textNostrip);
+        $text = strip_shortcodes($text);
+         $title = $post->post_title;
+        $post_type = $post->post_type;
+       // $status_post = $postData->post_status; //Статус поста
+
+        $arStatusSent = OrTextFunc::sendTextOriginal2($post_id, $text);
+
+        if (is_array($arStatusSent)) {
+            foreach ($arStatusSent as $parts => $status_sent) {
+                if ($status_sent['code'] == 000) {
+                    $post_id = 000;
+                    $title = 'Error plugin';
+                    $post_type = 'function error';
+                }
+                OrTextFunc::logJornal($post_id, $title, $status_sent['code'], $post_type, $status_sent['id'], $status_sent['quota'], $status_sent['parts'], $status_sent['ya_response']); //Логируем результаты
+            }
+        }
+
+        //Сохраняем данные об статусе отправки поста
+        update_post_meta($post_id, '_ortext_error', $arStatusSent);
+    }
+
     public function SentYandePostEditor($post_id, $post_data) {
 
         if ($_REQUEST['post_status'] != 'all' || $_REQUEST['post_view'] != 'list') {
-            return $id;
+            return $post_id;
         }
 
         $ortext_yasent = get_option('ortext_yasent'); // настройка для публикаций по умолчанию
 
         if (empty($ortext_yasent)) {
-            return $id;
+            return $post_id;
         }
 
         $arPost = $_REQUEST['post'];
 
         if (empty($arPost) || !is_array($arPost)) {
-            return $id;
+            return $post_id;
         }
 
 
@@ -122,10 +160,10 @@ class OrTextBase {
 
 
         if ($status_post == 'draft' OR $status_post == 'private' OR $status_post == 'trash') {
-            return $id;
+            return $post_id;
         }
 
-        $arStatusSent = OrTextFunc::sendTextOriginal2($text); //Отправка текста
+        $arStatusSent = OrTextFunc::sendTextOriginal2($post_id, $text); //Отправка текста
 
         if (is_array($arStatusSent)) {
             foreach ($arStatusSent as $parts => $status_sent) {
@@ -175,19 +213,19 @@ class OrTextBase {
     /**
      * Добавление опций в базу данных
      */
-    public function addOptions() {
-        add_option('ortext_id', $value = '', $deprecated = '', $autoload = 'yes');
-        add_option('ortext_passwd', $value = '', $deprecated = '', $autoload = 'yes');
+    public function activationPlugin() {
+        add_option('ortext_id', '');
+        add_option('ortext_passwd', '');
         add_option('ortext_token', ''); //Код токена
-        add_option('ortext_token_key', $value = '', $deprecated = '', $autoload = 'yes'); // Токен яндекса
-        add_option('ortext_token_time', $value = '', $deprecated = '', $autoload = 'yes'); //Время жизни токена
-        add_option('ortext_loadsite', $value = '', $deprecated = '', $autoload = 'yes'); //Текущей загруженный проект
-        add_option('ortext_yasent', $value = '', $deprecated = '', $autoload = 'yes'); //Опция для установки галочки в записях о отправки в яндекс
+        add_option('ortext_token_key', ''); // Токен яндекса
+        add_option('ortext_token_time', ''); //Время жизни токена
+        add_option('ortext_loadsite', ''); //Текущей загруженный проект
+        add_option('ortext_yasent', ''); //Опция для установки галочки в записях о отправки в яндекс
         add_option('ortext_jornal', array()); //Массив с журналом
         add_option('ortext_posttype', array('post' => 'post')); //Типы выбранных записей
         add_option('ortextprol');
-        add_option('ortext_jornal_inc', $value = '0'); //включалка журнала
-        add_option('ortext_error_inc', $value = '0'); //Включатель ошибок
+        add_option('ortext_jornal_inc', '0'); //включалка журнала
+        add_option('ortext_error_inc', '0'); //Включатель ошибок
         add_option('ortext_user_id', ''); //ИД пользователя от Яндекс
     }
 
@@ -266,9 +304,9 @@ class OrTextBase {
      */
     public function metabosHtml($post) {
 
-        $ortext_options = get_option('ortext_options',array());
+        $ortext_options = get_option('ortext_options', array());
 
-        if (in_array('button_send_field',$ortext_options)) {
+        if (in_array('button_send_field', $ortext_options)) {
             OrtextUi::buttonFieldPost();
         }
 
@@ -467,16 +505,16 @@ class OrTextBase {
             if (!empty($array_preg)) { //Проверка наличия правил регулярных выражений
                 if ($date_create == $date_modificed) { //Первая публикация или обновление
                     $text_reg1 = preg_replace($array_preg, $array_replace, $text);
-                    $arStatusSent = OrTextFunc::sendTextOriginal2($text_reg1); //Отправка текста
+                    $arStatusSent = OrTextFunc::sendTextOriginal2($post_id,$text_reg1); //Отправка текста
                 } elseif ($date_create !== $date_modificed and $radio_chek !== '1') { //Принудительная отправка при обновление
                     $text_reg1 = preg_replace($array_preg, $array_replace, $text);
-                    $arStatusSent = OrTextFunc::sendTextOriginal2($text_reg1); //Отправка текста
+                    $arStatusSent = OrTextFunc::sendTextOriginal2($post_id, $text_reg1); //Отправка текста
                 }
             } else {
                 if ($date_create == $date_modificed) { //Первая публикация или обновление
-                    $arStatusSent = OrTextFunc::sendTextOriginal2($text); //Отправка текста
+                    $arStatusSent = OrTextFunc::sendTextOriginal2($post_id, $text); //Отправка текста
                 } elseif ($date_create !== $date_modificed and $radio_chek !== '1') { //Принудительная отправка при обновление
-                    $arStatusSent = OrTextFunc::sendTextOriginal2($text); //Отправка текста
+                    $arStatusSent = OrTextFunc::sendTextOriginal2($post_id, $text); //Отправка текста
                 }
             }
             if (is_array($arStatusSent)) {
@@ -513,7 +551,7 @@ class OrTextBase {
         $textNostrip = strip_tags($postData->post_content);
         $text = htmlspecialchars($textNostrip);
         $text = strip_shortcodes($text);
-        $arStatusSent = OrTextFunc::sendTextOriginal2($text); //Отправка текста
+        $arStatusSent = OrTextFunc::sendTextOriginal2($post_id, $text); //Отправка текста
         if (is_array($arStatusSent)) {
             foreach ($arStatusSent as $parts => $status_sent) {
                 if ($status_sent['code'] == 000) {

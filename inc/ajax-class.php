@@ -10,13 +10,6 @@ if (!defined('ABSPATH')) {
 class OrtextJavaScript {
 
     /**
-     * Конструктор класса
-     */
-    public function __construct() {
-        
-    }
-
-    /**
      * Функции подключаемые через add_action
      */
     public function addaction() {
@@ -95,7 +88,7 @@ class OrtextJavaScript {
             $text = preg_replace($array_preg, $array_replace, $text);
         }
 
-        $arStatusSent = OrTextFunc::sendTextOriginal2($text); //Отправка текста
+        $arStatusSent = OrTextFunc::sendTextOriginal2($post_id, $text); //Отправка текста
         $strMessage = '';
         if (is_array($arStatusSent) && !empty($arStatusSent)) {
             foreach ($arStatusSent as $parts => $status_sent) {
@@ -242,7 +235,8 @@ class OrtextJavaScript {
     public function ajaxSentYandexCustom() {
         $arResult = $this->getResult();
         $content = $_POST['text'];
-        $arStatusSent = OrTextFunc::sendTextOriginal2($content);
+        $post_id=0;//Здесь не может быть его
+        $arStatusSent = OrTextFunc::sendTextOriginal2($post_id, $content);
 
         if (is_array($arStatusSent)) {
             foreach ($arStatusSent as $parts => $status_sent) {

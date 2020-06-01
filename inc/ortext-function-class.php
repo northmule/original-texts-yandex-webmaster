@@ -8,7 +8,7 @@ if (!defined('ABSPATH')) {
  * Класс с функционалом и обработками
  */
 class OrTextFunc {
-
+    
     const YANDEX_ADD_APLICATION = 'https://oauth.yandex.ru/client/new'; //Урл создания нового приложения Яндекс
     const YANDEX_APP_APLICATION = 'https://oauth.yandex.ru/client/my'; // Урл к выбору прилжоения
     const YANDEX_Callback_FUNCTION = 'https://oauth.yandex.ru/verification_code'; // УРЛ Функции callback для приложения
@@ -18,12 +18,12 @@ class OrTextFunc {
     const YANDEX_MAX_POST_DAY = 100; //Максимальное количество текстов в сутки
     const YANDEX_MIN_SIZE_POST = 500; // Минимальное количество символов  в посте
     const YANDEX_MAX_SIZE_POST = 32000; // Максимальное количество символов в посте
-
+    
     /**
      * Коды ошибок при запросе токена с описанием
-     * @var type 
+     * @var type
      */
-
+    
     public static $arCodeErrorToken = array(
         'authorization_pending' => 'Пользователь еще не ввел код подтверждения.',
         'bad_verification_code' => 'Переданное значение параметра code не является 7-значным числом.',
@@ -36,10 +36,10 @@ class OrTextFunc {
         'Basic auth required' => 'Тип авторизации, указанный в заголовке Authorization, отличен от Basic.',
         'Malformed Authorization header' => 'Заголовок Authorization не соответствует формату <client_id>:<client_secret>, или эта строка не закодирована методом base64.',
     );
-
+    
     /**
      * Коды ошибок при отправке текста в Я
-     * @var type 
+     * @var type
      */
     public static $arCodeErrorSentText = array(
         '403' => 'ID пользователя, выдавшего токен, отличается от указанного в запросе.',
@@ -49,7 +49,7 @@ class OrTextFunc {
         '429' => 'Превышена квота добавления оригинальных текстов.',
         '201' => 'Текст добавлен в сервис Яндекс',
     );
-
+    
     /**
      * Условия
      */
@@ -64,10 +64,10 @@ class OrTextFunc {
             update_option('ortext_jornal', array());
         }
     }
-
+    
     /**
      * Получение от Яндекса Токена
-     * 
+     *
      * @return string
      */
     public function getYandexToken() {
@@ -75,7 +75,7 @@ class OrTextFunc {
         $url = self::YANDEX_TOKEN_URL . $ortext_id;
         return $url;
     }
-
+    
     /**
      * Получает список сайтов делая запрос в виде JSON
      * @return ассоциативный массив сайтов или false
@@ -85,21 +85,21 @@ class OrTextFunc {
         $ortext_passwd = get_option('ortext_passwd');
         $ortext_token = get_option('ortext_token');
         $ortext_token_key = get_option('ortext_token_key'); // Токен яндекса
-
+        
         $userID = self::getUserId(); //индификатор пользователя
         if (empty($userID)) {
             return false;
         }
-
+        
         $url = 'https://' . self::YANDEX_WEBMASTER_HOST . '/v3/user/' . $userID . '/hosts/';
         $curlinfo = wp_remote_post(
-                $url, array(
-            'method' => 'GET',
-            'headers' => array('Authorization' => 'OAuth ' . $ortext_token_key, 'content-type' => 'application/json'),
-            'timeout' => 7,
-            'redirection' => 5,
-            'httpversion' => '1.1'
-                )
+            $url, array(
+                'method' => 'GET',
+                'headers' => array('Authorization' => 'OAuth ' . $ortext_token_key, 'content-type' => 'application/json'),
+                'timeout' => 7,
+                'redirection' => 5,
+                'httpversion' => '1.1'
+            )
         );
         if (is_wp_error($curlinfo)) { //Проверка переменной на содержание ошибки
             return false;
@@ -114,25 +114,25 @@ class OrTextFunc {
                     $return = false;
                     break;
             }
-
+            
             return $return['hosts'];
         }
-
+        
         return "Ошибка";
     }
-
+    
     /**
      * Запрос токена у яндекса + время жизни токена
      * @return object     $result->access_token - Токен
      * $result->expires_in - Время жизни токена в секундах
-     * 
+     *
      */
     public static function getTokenToYandex() {
         $url = 'https://oauth.yandex.ru/token';
         $ortext_id = get_option('ortext_id');
         $ortext_passwd = get_option('ortext_passwd');
         $ortext_code = get_option('ortext_token');
-
+        
         $postData = array(
             'grant_type' => 'authorization_code',
             'code' => $ortext_code,
@@ -153,20 +153,24 @@ class OrTextFunc {
         }
         return false;
     }
-
+    
     /**
      * Отправка Текстов в Сервис Оригинальные тексты
+     * @param int $postId ИД поста
      * @param string $strPost Текст для загрузки
      * @return array Многомерный массив с данными об отправки каждой части текста
      */
-    public static function sendTextOriginal2($strPost) {
+    public static function sendTextOriginal2($postId, $strPost) {
         $ortext_loadsite = get_option('ortext_loadsite'); //Текущий загруженный проект
         $ortext_token_key = get_option('ortext_token_key'); // Токен яндекса
-
+        $postId=intval($postId);
+        
+        $strPost = apply_filters('coderun_filter_original_text_body_text',$strPost);
+        
         $arText = self::textChunk($strPost);
         $idYa = '';
         $quota = ''; //Квота на день (осталось)
-
+        
         $arTmpResult[] = array(
             'code' => 000,
             'id' => $idYa,
@@ -174,7 +178,7 @@ class OrTextFunc {
             'parts' => '',
         );
         $arResult = array();
-
+        
         foreach ($arText as $parts => $text2) {
             $text = array('content' => $text2);
             $userID = self::getUserId(); //индификатор пользователя
@@ -183,14 +187,14 @@ class OrTextFunc {
             }
             $url = 'https://' . self::YANDEX_WEBMASTER_HOST . '/v3/user/' . $userID . '/hosts/' . $ortext_loadsite . '/original-texts/';
             $curlinfo = wp_remote_post(
-                    $url, array(
-                'method' => 'POST',
-                'headers' => array('Authorization' => 'OAuth ' . $ortext_token_key, 'content-type' => 'application/json'),
-                'body' => json_encode($text, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
-                'timeout' => 12,
+                $url, array(
+                    'method' => 'POST',
+                    'headers' => array('Authorization' => 'OAuth ' . $ortext_token_key, 'content-type' => 'application/json'),
+                    'body' => json_encode($text, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
+                    'timeout' => 12,
                     //'redirection' => 5,
                     //'httpversion' => '1.1'
-                    )
+                )
             );
             if (is_wp_error($curlinfo)) { //Проверка переменной на содержание ошибки
                 return array($arTmpResult);
@@ -198,7 +202,7 @@ class OrTextFunc {
                 $arTmpResult = array();
                 $response = $curlinfo['response'];
                 $body = json_decode($curlinfo['body'], TRUE);
-
+                
                 if (array_key_exists($response['code'], self::$arCodeErrorSentText)) {
                     if ($response['code'] == '201') {
                         $arTmpResult['code'] = $response['code'];
@@ -217,34 +221,48 @@ class OrTextFunc {
                     $arTmpResult['ya_response'] = $curlinfo['body'];
                 }
             }
-
+            
             $arResult[$parts] = $arTmpResult;
         }
+        /**
+         * @var int $postId
+         * @var string $strPost
+         * @var array $arResult
+         */
+        if($postId>0) {
+            do_action('coderun_action_original_text_after_body_send',$postId,$strPost,$arResult,[
+                'user_id' => get_option("ortext_user_id", ''),
+                'host_id' => get_option('ortext_loadsite', ''),
+                'token' => get_option('ortext_token_key', ''),
+                'post_types' => get_option('ortext_posttype', []),
+            ]);
+        }
+        
         return $arResult;
     }
-
+    
     /**
      * Получение индификатора пользователя от Яндекс или извлечение его из БД
      * @return int Индификатор пользователя Яндекс или false
-     * 
+     *
      */
     public static function getUserId() {
-
+        
         $storeUserId = get_option("ortext_user_id");
         if (empty($storeUserId)) {
             $url = 'https://api.webmaster.yandex.net/v3/user/';
             $ortext_loadsite = get_option('ortext_loadsite'); //Текущий загруженный проект
             $ortext_token_key = get_option('ortext_token_key'); // Токен яндекса
             $curlinfo = wp_remote_post(
-                    $url, array(
-                'method' => 'GET',
-                'headers' => array('Authorization' => 'OAuth ' . $ortext_token_key, 'content-type' => 'application/json'),
-                'timeout' => 7,
-                'redirection' => 5,
-                'httpversion' => '1.1'
-                    )
+                $url, array(
+                    'method' => 'GET',
+                    'headers' => array('Authorization' => 'OAuth ' . $ortext_token_key, 'content-type' => 'application/json'),
+                    'timeout' => 7,
+                    'redirection' => 5,
+                    'httpversion' => '1.1'
+                )
             );
-
+            
             if (is_wp_error($curlinfo)) { //Проверка переменной на содержание ошибки
                 return false;
             } else {
@@ -267,7 +285,7 @@ class OrTextFunc {
             return $storeUserId;
         }
     }
-
+    
     /**
      * Проверка Чекеда
      * @param string $options Опция из базы данных
@@ -283,7 +301,7 @@ class OrTextFunc {
             }
         }
     }
-
+    
     /**
      * Получает текст очищенный от всякого мусора и
      * режет его на части
@@ -312,7 +330,7 @@ class OrTextFunc {
         $arResult = array_filter($arResult);
         return $arResult;
     }
-
+    
     /**
      * Функция логирования, для вкладки журнал
      * @param int $idpost ид поста
@@ -321,14 +339,14 @@ class OrTextFunc {
      * @param string $post_type Тип поста
      * @param string $idyandex Ид добавленного текста в яндексе
      * @param string $parts - признак того что это часть большого текста
-      @param array $ya_response - Ответ от яндекса
+    @param array $ya_response - Ответ от яндекса
      */
     public static function logJornal($idpost, $title, $status, $post_type, $idyandex = '', $quota = '', $parts = '', $ya_response = array()) {
         $includ_jornal = get_option('ortext_jornal_inc');
         if ($includ_jornal == '1') {
-
+            
             $ortext_jornal_old = get_option('ortext_jornal');
-
+            
             $time = current_time('mysql');
             $ortext_jornal_temp = array(
                 'time' => $time,
@@ -347,7 +365,7 @@ class OrTextFunc {
             update_option('ortext_jornal', $ortext_jornal_new);
         }
     }
-
+    
     /**
      * Поиск строки по началу и концу
      */
@@ -355,14 +373,14 @@ class OrTextFunc {
         $posStart = stripos($text, $start);
         if ($posStart === false)
             return false;
-
+        
         $text = substr($text, $posStart + strlen($start));
         $posEnd = stripos($text, $end);
         if ($posEnd === false)
             return false;
-
+        
         $result = substr($text, 0, 0 - (strlen($text) - $posEnd));
         return $result;
     }
-
+    
 }

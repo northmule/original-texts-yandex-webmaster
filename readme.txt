@@ -29,6 +29,7 @@ Support and suggestions, [Support](http://www.zixn.ru/plagin-originalnye-teksty-
 
 = Поддержи проект: =
 <a href="https://money.yandex.ru/to/41001746944171" target="_blank">Visa / MasterCard / Mir / YandexMoney</a>
+<a href="https://www.paypal.me/coderunru">PayPal</a>
 
 == Installation ==
 
@@ -52,6 +53,13 @@ While doing the installation procedure, it is recommended to go through all the 
 6. Вид при публикации записи. Look at the publication post
 
 == Changelog ==
+= 1.16 =
+* Текст перед отправкой можно дополнительно очистить через coderun_filter_original_text_body_text
+* После отправки текста вызывается action coderun_action_original_text_after_body_send с параметрами ИД записи,обработанный текст, результат отправки
+
+= 1.15 =
+* Некоторая оптимизация кода
+* Поддержка плагина wp-automatic (отправка поста на событии wp_automatic_post_added)
 = 1.14 =
 * Исправлены мелкие ошибки
 * Новая опция в настройках плагина для отправки текста из любого input или textarea (beta)
