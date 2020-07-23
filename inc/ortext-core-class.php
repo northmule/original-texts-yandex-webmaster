@@ -519,7 +519,7 @@ class OrTextBase {
             }
             if (is_array($arStatusSent)) {
                 foreach ($arStatusSent as $parts => $status_sent) {
-                    if ($status_sent['code'] == 000) {
+                    if(isset($status_sent['code'] ) && $status_sent['code'] == 000) {
                         $post_id = 000;
                         $title = 'Error plugin';
                         $post_type = 'function error';
